@@ -1,0 +1,16 @@
+{
+  "name": "juix-bot",
+  "version": "1.0.0",
+  "description": "JUIX whitelist Discord bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
