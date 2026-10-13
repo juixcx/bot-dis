@@ -6,8 +6,18 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const JUIX_API = process.env.JUIX_API;
 const BOT_API_KEY = process.env.BOT_API_KEY;
 
+// ============ STARTUP LOG ============
+console.log("========================================");
+console.log("🚀 JUIX Bot starting...");
+console.log("========================================");
+console.log("BOT_TOKEN:", BOT_TOKEN ? `✅ set (${BOT_TOKEN.length} chars)` : "❌ MISSING");
+console.log("CLIENT_ID:", CLIENT_ID || "❌ MISSING");
+console.log("JUIX_API:", JUIX_API || "❌ MISSING");
+console.log("BOT_API_KEY:", BOT_API_KEY ? "✅ set" : "❌ MISSING");
+console.log("========================================");
+
 if (!BOT_TOKEN || !CLIENT_ID || !JUIX_API || !BOT_API_KEY) {
-  console.error("Missing env vars! Need: BOT_TOKEN, CLIENT_ID, JUIX_API, BOT_API_KEY");
+  console.error("❌ Missing env vars! Need: BOT_TOKEN, CLIENT_ID, JUIX_API, BOT_API_KEY");
   process.exit(1);
 }
 
@@ -18,7 +28,6 @@ const client = new Client({
   ],
 });
 
-// ============ JUIX API HELPER ============
 async function juixAPI(path, method = "GET", body = null) {
   const res = await fetch(JUIX_API + path, {
     method,
@@ -44,23 +53,36 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 ];
+
 // ============ READY ============
 client.once(Events.ClientReady, async () => {
+  console.log("========================================");
   console.log(`✅ Bot online: ${client.user.tag}`);
+  console.log(`✅ Bot ID: ${client.user.id}`);
+  console.log("========================================");
 
   const rest = new REST({ version: "10" }).setToken(BOT_TOKEN);
   try {
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
     console.log("✅ Slash commands registered");
   } catch (e) {
-    console.error("❌ Failed to register commands:", e);
+    console.error("❌ Failed to register commands:", e.message);
+    console.error("Full error:", JSON.stringify(e, null, 2));
   }
+});
+
+// ============ ERROR HANDLING ============
+client.on("error", (err) => {
+  console.error("❌ Client error:", err.message);
+});
+
+client.on("warn", (info) => {
+  console.warn("⚠️ Warn:", info);
 });
 
 // ============ GUILD CREATE ============
 client.on(Events.GuildCreate, async (guild) => {
-  console.log(`Joined guild: ${guild.name} (${guild.id})`);
-
+  console.log(`📥 Joined guild: ${guild.name} (${guild.id})`);
   try {
     const owner = await guild.fetchOwner();
     await owner.send({
@@ -90,11 +112,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.deferReply({ ephemeral: true });
 
-      // ตรวจ provider มีจริงไหม
-      const lookup = await juixAPI(`/api/bot/panel/lookup/__check__`, "GET")
-        .catch(() => ({ ok: false }));
-      
-      // ส่ง panel
       const embed = new EmbedBuilder()
         .setTitle("🔐 JUIX Whitelist")
         .setDescription(
@@ -131,7 +148,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const msg = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-      // register panel
       await juixAPI("/api/bot/panel/register", "POST", {
         messageId: msg.id,
         channelId: interaction.channelId,
@@ -140,17 +156,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
         createdBy: interaction.user.id,
       });
 
-      await interaction.editReply({
-        content: "✅ Panel ถูกส่งแล้ว!",
-      });
+      await interaction.editReply({ content: "✅ Panel ถูกส่งแล้ว!" });
     }
     return;
   }
 
   // ---------- BUTTON ----------
   if (interaction.isButton()) {
-    const [action, providerId] = interaction.customId.split("_");
-    // custom_id = "redeem_XXXXX" -> ["redeem", "XXXXX"]
+    const parts = interaction.customId.split("_");
+    const action = parts[0];
+    const providerId = parts.slice(1).join("_");
 
     if (action === "redeem") {
       const modal = new ModalBuilder()
@@ -221,12 +236,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return interaction.editReply({ content: "❌ คุณยังไม่มี key" });
       }
 
-      // reset ทุก key ที่ผูกกับ user นี้
       let resetCount = 0;
       for (const k of result.keys) {
-        const fullKey = k.key;
         const rr = await juixAPI("/api/bot/reset-hwid", "POST", {
-          key: fullKey,
+          key: k.key,
           discordId: interaction.user.id,
         });
         if (rr.ok) resetCount++;
@@ -284,7 +297,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // ============ LOGIN ============
-client.login(process.env.BOT_TOKEN);
+console.log("🔑 Calling client.login()...");
+client.login(BOT_TOKEN)
+  .then(() => console.log("✅ client.login() succeeded"))
+  .catch(err => {
+    console.error("❌ client.login() failed:", err.message);
+    console.error("Full error:", err);
+  });
 
 // ============ HTTP SERVER (for Render) ============
 const http = require("http");
