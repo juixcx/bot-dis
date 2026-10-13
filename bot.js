@@ -284,7 +284,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // ============ LOGIN ============
-client.login(BOT_TOKEN);
+client.login(MTU1OTIwNTkyNjQxMjc1MDkwOA.GHXYph.Z6L3zc7QINDSrQ3mpTE6wy5MgGt8ryHMhqZVrQ);
 
 // ============ HTTP SERVER (for Render) ============
 const http = require("http");
