@@ -186,21 +186,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (action === "script") {
-      await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ ephemeral: true });
 
-      const info = await juixAPI(`/api/bot/panel/lookup/${interaction.message.id}`);
-      if (!info.ok || !info.provider) {
-        return interaction.editReply({ content: "❌ ไม่พบ provider" });
-      }
-      if (info.provider.enabled === false) {
-        return interaction.editReply({ content: "❌ สคริปต์ถูกปิดอยู่" });
-      }
+  const info = await juixAPI(`/api/bot/panel/lookup/${interaction.message.id}`);
+  if (!info.ok || !info.provider) {
+    return interaction.editReply({ content: "❌ ไม่พบ provider" });
+  }
+  if (info.provider.enabled === false) {
+    return interaction.editReply({ content: "❌ สคริปต์ถูกปิดอยู่" });
+  }
 
-      const url = `${JUIX_API}/loader.lua?provider=${providerId}`;
-      await interaction.editReply({
-        content: `📜 **Loader URL สำหรับ ${info.provider.name}:**\n\`\`\`lua\nloadstring(game:HttpGet("${url}"))()\n\`\`\``,
-      });
-      return;
+  const check = await juixAPI(`/api/bot/user-has-key/${interaction.user.id}/${providerId}`);
+  if (!check.ok || !check.hasKey) {
+    const reason = check.reason === "key expired"
+      ? "❌ Key ของคุณหมดอายุแล้ว"
+      : "❌ คุณยังไม่มี key — กด **🔑 Redeem Key** ก่อน";
+    return interaction.editReply({ content: reason });
+  }
+
+  const script = `script_key="${check.key}"; (loadstring(game:HttpGet("https://getnative.cc/script/loader"))())`;
+  await interaction.editReply({
+    content:
+      `📜 **Script สำหรับ ${info.provider.name}:**\n` +
+      `\`\`\`lua\n${script}\n\`\`\`\n` +
+      `🔑 Key: \`${check.key.slice(0, 20)}...\``,
+  });
+  return;
     }
 
     if (action === "mykeys") {
